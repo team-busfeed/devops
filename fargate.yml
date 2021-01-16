@@ -1,0 +1,261 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  RoleForECS:
+    Type: String
+    Description: ARN for ECS
+Metadata:
+  'AWS::CloudFormation::Designer':
+    744817ed-fcb3-4279-b775-d2edb1e7d32b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 920
+        'y': 120
+      z: 0
+      embeds: []
+    b5768bd2-72a3-4496-9343-b031917e3f0b:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 420
+        'y': 220
+      z: 0
+      embeds: []
+      dependson:
+        - ef5f888b-7400-48b4-97e5-3b1af7aed380
+        - 69571b83-6c35-4bf9-89d1-67f3bd7009eb
+    d3de1c60-f3fb-40db-a72a-b09ef8b7309c:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 540
+        'y': 220
+      z: 0
+      embeds: []
+    50f10f73-69f6-42b6-bc07-d9e74b27571f:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 90
+        'y': 420
+      z: 0
+      embeds: []
+      dependson:
+        - ded2a394-a207-4590-97ad-ef13cc9ca6a5
+    db9fa454-7bfa-425a-979e-1f9b35770cbb:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 420
+        'y': 320
+      z: 0
+      embeds: []
+      dependson:
+        - 50f10f73-69f6-42b6-bc07-d9e74b27571f
+        - ef5f888b-7400-48b4-97e5-3b1af7aed380
+    ef5f888b-7400-48b4-97e5-3b1af7aed380:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 920
+        'y': 680
+      z: 0
+      embeds: []
+    7aa718ee-6663-4d90-9024-c573e768798c:
+      size:
+        width: 140
+        height: 140
+      position:
+        x: 500
+        'y': -140
+      z: 0
+      embeds: []
+    69571b83-6c35-4bf9-89d1-67f3bd7009eb:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 420
+        'y': 430
+      z: 0
+      embeds: []
+Resources:
+  busfeedCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      ClusterName: busfeed-backend-cluster
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 744817ed-fcb3-4279-b775-d2edb1e7d32b
+  locationTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /location/healthcheck
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 5
+      Name: location-target-grp
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !ImportValue VPC-ID
+      TargetType: ip
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: db9fa454-7bfa-425a-979e-1f9b35770cbb
+    DependsOn:
+      - busfeedLB
+      - LBListener
+  locationService:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      Cluster: !Ref busfeedCluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 30
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: location
+          ContainerPort: 3001
+          TargetGroupArn: !Ref locationTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !ImportValue PublicSubnetA
+            - !ImportValue PublicSubnetB
+          SecurityGroups:
+            - !ImportValue LocationSecurityGroup
+          AssignPublicIp: ENABLED
+      PlatformVersion: LATEST
+      SchedulingStrategy: REPLICA
+      ServiceName: busfeed_location_service
+      TaskDefinition: !Ref locationTask
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: b5768bd2-72a3-4496-9343-b031917e3f0b
+    DependsOn:
+      - locationTargetGroup
+      - LBListener
+      - locationServiceListenerRule
+  locationTask:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      ExecutionRoleArn: !Ref RoleForECS
+      ContainerDefinitions:
+        - LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref locationServiceLogs
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: ecs
+          EntryPoint: []
+          Environment: []
+          PortMappings:
+            - HostPort: 3001
+              Protocol: tcp
+              ContainerPort: 3001
+          Command: []
+          Cpu: 0
+          MountPoints: []
+          WorkingDirectory: /usr/src/busfeed/services/location
+          MemoryReservation: 256
+          VolumesFrom: []
+          Image: 212765319754.dkr.ecr.ap-southeast-1.amazonaws.com/location-service
+          Essential: true
+          Links: []
+          Name: location
+      PlacementConstraints: []
+      Memory: '512'
+      TaskRoleArn: !Ref RoleForECS
+      Family: busfeed-location-service
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: '256'
+      Volumes: []
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: d3de1c60-f3fb-40db-a72a-b09ef8b7309c
+  locationServiceLogs:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: /ecs/location-service
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 7aa718ee-6663-4d90-9024-c573e768798c
+  busfeedLB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      IpAddressType: ipv4
+      Name: busfeedLB
+      SecurityGroups:
+        - !ImportValue LoadBalancerSecurityGroup
+      Scheme: internet-facing
+      Subnets:
+        - !ImportValue PublicSubnetA
+        - !ImportValue PublicSubnetB
+      Type: application
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 50f10f73-69f6-42b6-bc07-d9e74b27571f
+  LBListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      LoadBalancerArn: !Ref busfeedLB
+      Certificates:
+        - CertificateArn: >-
+            arn:aws:acm:ap-southeast-1:212765319754:certificate/366d148a-d362-4d77-80cc-10ed2685302d
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: application/json
+            MessageBody: '{"type":"error", "message": "Direct access not allowed"}'
+            StatusCode: 400
+      Port: 443
+      Protocol: HTTPS
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: ef5f888b-7400-48b4-97e5-3b1af7aed380
+    DependsOn:
+      - busfeedLB
+  locationServiceListenerRule:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref locationTargetGroup
+          Type: forward
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /location*
+      ListenerArn: !Ref LBListener
+      Priority: 3
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 69571b83-6c35-4bf9-89d1-67f3bd7009eb
+    DependsOn:
+      - LBListener
+      - locationTargetGroup
+Outputs:
+  LoadBalancerDNS:
+    Description: DNS for the busfeed load balancer
+    Value:
+      'Fn::GetAtt':
+        - busfeedLB
+        - DNSName
+    Export:
+      Name: busfeedLoadBalancerDNS
