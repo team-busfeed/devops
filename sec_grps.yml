@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  LoadBalancerSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Allow http to client host"
+      GroupName: "load-balancer-group"
+      VpcId: !ImportValue "VPC-ID"
+      SecurityGroupIngress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 80
+          IpProtocol: "tcp"
+          ToPort: 80
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 3306
+          IpProtocol: "tcp"
+          ToPort: 3306
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 443
+          IpProtocol: "tcp"
+          ToPort: 443
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 0
+          IpProtocol: "tcp"
+          ToPort: 65535
+  LocationSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Security Group for location-service"
+      GroupName: "location-services-group"
+      VpcId: !ImportValue "VPC-ID"
+      SecurityGroupIngress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 3001
+          IpProtocol: "tcp"
+          ToPort: 3001
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "-1"
+  RDSSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Security Group for RDS"
+      GroupName: "rds-db-services-group"
+      VpcId: !ImportValue "VPC-ID"
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref LocationSecurityGroup
+          Description: "Location Service Fargate Access"
+          FromPort: 3306
+          IpProtocol: "tcp"
+          ToPort: 3306
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "-1"
+
+# === FOR CLOUDFORMATION CROSS STACK REF ==============
+Outputs:
+  LocationSecurityGroupID:
+    Description: LocationSecurityGroup ID
+    Value: !Ref LocationSecurityGroup
+    Export:
+      Name: LocationSecurityGroup
+  RDSSecurityGroupID:
+    Description: RDSSecurityGroup ID
+    Value: !Ref RDSSecurityGroup
+    Export:
+      Name: RDSSecurityGroup
+  LoadBalancerSecurityGroupID:
+    Description: LoadBalancerSecurityGroup ID
+    Value: !Ref LoadBalancerSecurityGroup
+    Export:
+      Name: LoadBalancerSecurityGroup
