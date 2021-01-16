@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  # VPC Set up
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/24
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: "busfeed-VPC" # change this
+  # Internet Gateway for busfeed
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    # DependsOn: VPC
+    Properties:
+      Tags:
+        - Key: Name
+          Value: "busfeed-network"
+  IGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: VPC
+      InternetGatewayId:
+        Ref: InternetGateway
+
+  # ============= busfeed-subnet-public-a =============
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 10.0.0.192/28
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref "AWS::Region"
+      Tags:
+        - Key: Name
+          Value: busfeed-subnet-public-a
+  # endof ============= busfeed-subnet-public-a =============
+
+  # ============= busfeed-subnet-public-b =============
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 10.0.0.208/28
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref "AWS::Region"
+      Tags:
+        - Key: Name
+          Value: busfeed-subnet-public-b
+  # endof ============= busfeed-subnet-public-b =============
+
+  # ============= public route table =============
+  RouteTablePublic:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+        - Key: Name
+          Value: busfeed-dev-public-rt
+  RoutePublic:
+    Type: AWS::EC2::Route
+    DependsOn: IGWAttachment
+    Properties:
+      RouteTableId:
+        Ref: RouteTablePublic
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+  SubnetRouteTableAssociationA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnetA
+      RouteTableId:
+        Ref: RouteTablePublic
+  SubnetRouteTableAssociationB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnetB
+      RouteTableId:
+        Ref: RouteTablePublic
+  # endof ============= public route table =============
+
+# === FOR CLOUDFORMATION CROSS STACK REF (FROM NETWORK.yml) ==============
+Outputs:
+  # ===== VPC =====
+  VPCID:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: VPC-ID
+
+  # ===== Subnets =====
+
+  #busfeed-subnet-public-a
+  PublicSubnetAID:
+    Description: busfeed Subnet Public A ID
+    Value: !Ref PublicSubnetA
+    Export:
+      Name: PublicSubnetA
+
+  #busfeed-subnet-public-b
+  PublicSubnetBID:
+    Description: busfeed Subnet Public B ID
+    Value: !Ref PublicSubnetB
+    Export:
+      Name: PublicSubnetB
