@@ -38,6 +38,20 @@ Resources:
       SecurityGroupEgress:
         - CidrIp: "0.0.0.0/0"
           IpProtocol: "-1"
+  DemandSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Security Group for demand-service"
+      GroupName: "demand-services-group"
+      VpcId: !ImportValue "VPC-ID"
+      SecurityGroupIngress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 3000
+          IpProtocol: "tcp"
+          ToPort: 3000
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "-1"
   RDSSecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
@@ -47,6 +61,11 @@ Resources:
       SecurityGroupIngress:
         - SourceSecurityGroupId: !Ref LocationSecurityGroup
           Description: "Location Service Fargate Access"
+          FromPort: 3306
+          IpProtocol: "tcp"
+          ToPort: 3306
+        - SourceSecurityGroupId: !Ref DemandSecurityGroup
+          Description: "Demand Service Fargate Access"
           FromPort: 3306
           IpProtocol: "tcp"
           ToPort: 3306
@@ -61,6 +80,11 @@ Outputs:
     Value: !Ref LocationSecurityGroup
     Export:
       Name: LocationSecurityGroup
+  DemandSecurityGroupID:
+    Description: DemandSecurityGroup ID
+    Value: !Ref DemandSecurityGroup
+    Export:
+      Name: DemandSecurityGroup
   RDSSecurityGroupID:
     Description: RDSSecurityGroup ID
     Value: !Ref RDSSecurityGroup

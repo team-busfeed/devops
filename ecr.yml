@@ -4,3 +4,7 @@ Resources:
     Type: 'AWS::ECR::Repository'
     Properties:
       RepositoryName: location-service
+  DEMANDSERVICE:
+    Type: 'AWS::ECR::Repository'
+    Properties:
+      RepositoryName: demand-service
