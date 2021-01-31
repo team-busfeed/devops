@@ -52,6 +52,20 @@ Resources:
       SecurityGroupEgress:
         - CidrIp: "0.0.0.0/0"
           IpProtocol: "-1"
+  BeaconSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Security Group for beacon-service"
+      GroupName: "beacon-services-group"
+      VpcId: !ImportValue "VPC-ID"
+      SecurityGroupIngress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 3002
+          IpProtocol: "tcp"
+          ToPort: 3002
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "-1"
   RDSSecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
@@ -66,6 +80,11 @@ Resources:
           ToPort: 3306
         - SourceSecurityGroupId: !Ref DemandSecurityGroup
           Description: "Demand Service Fargate Access"
+          FromPort: 3306
+          IpProtocol: "tcp"
+          ToPort: 3306
+        - SourceSecurityGroupId: !Ref BeaconSecurityGroup
+          Description: "Beacon Service Fargate Access"
           FromPort: 3306
           IpProtocol: "tcp"
           ToPort: 3306
@@ -85,6 +104,11 @@ Outputs:
     Value: !Ref DemandSecurityGroup
     Export:
       Name: DemandSecurityGroup
+  BeaconSecurityGroupID:
+    Description: BeaconSecurityGroup ID
+    Value: !Ref BeaconSecurityGroup
+    Export:
+      Name: BeaconSecurityGroup
   RDSSecurityGroupID:
     Description: RDSSecurityGroup ID
     Value: !Ref RDSSecurityGroup

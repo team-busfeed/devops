@@ -90,7 +90,7 @@ Metadata:
         width: 140
         height: 140
       position:
-        x: 760
+        x: 800
         'y': -130
       z: 0
       embeds: []
@@ -106,6 +106,7 @@ Metadata:
       dependson:
         - ef5f888b-7400-48b4-97e5-3b1af7aed380
         - 69571b83-6c35-4bf9-89d1-67f3bd7009eb
+        - 534bda05-1c8e-4293-8c6c-f0aed79024e6
     cd3056e7-a05a-4897-b0b1-2614091414cf:
       size:
         width: 60
@@ -134,6 +135,58 @@ Metadata:
       position:
         x: 720
         'y': 430
+      z: 0
+      embeds: []
+    b073cca5-087d-487e-9a1c-e11812518db0:
+      size:
+        width: 140
+        height: 140
+      position:
+        x: 1140
+        'y': -130
+      z: 0
+      embeds: []
+    fa372ac9-fce5-4986-a65b-fea84b4a9494:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1050
+        'y': 220
+      z: 0
+      embeds: []
+      dependson:
+        - ef5f888b-7400-48b4-97e5-3b1af7aed380
+        - 69571b83-6c35-4bf9-89d1-67f3bd7009eb
+        - 534bda05-1c8e-4293-8c6c-f0aed79024e6
+    f46236d8-788b-4bde-82ef-74689edb183c:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1170
+        'y': 220
+      z: 0
+      embeds: []
+    0fc9b418-bb0a-404c-ad2c-d30f3e2b190a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1050
+        'y': 320
+      z: 0
+      embeds: []
+      dependson:
+        - 50f10f73-69f6-42b6-bc07-d9e74b27571f
+        - ef5f888b-7400-48b4-97e5-3b1af7aed380
+    46df3036-efd0-47e7-95a2-4b4bdd860f8a:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1050
+        'y': 420
       z: 0
       embeds: []
 Resources:
@@ -420,6 +473,125 @@ Resources:
     DependsOn:
       - LBListener
       - demandTargetGroup
+  beaconServiceLogs:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: /ecs/beacon-service
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: b073cca5-087d-487e-9a1c-e11812518db0
+  beaconService:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      Cluster: !Ref busfeedCluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 30
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: beacon
+          ContainerPort: 3002
+          TargetGroupArn: !Ref beaconTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !ImportValue PublicSubnetA
+            - !ImportValue PublicSubnetB
+          SecurityGroups:
+            - !ImportValue BeaconSecurityGroup
+          AssignPublicIp: ENABLED
+      PlatformVersion: LATEST
+      SchedulingStrategy: REPLICA
+      ServiceName: busfeed_beacon_service
+      TaskDefinition: !Ref beaconTask
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: fa372ac9-fce5-4986-a65b-fea84b4a9494
+    DependsOn:
+      - beaconTargetGroup
+      - LBListener
+      - beaconServiceListenerRule
+  beaconTask:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      ExecutionRoleArn: !Ref RoleForECS
+      ContainerDefinitions:
+        - LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref beaconServiceLogs
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: ecs
+          EntryPoint: []
+          Environment: []
+          PortMappings:
+            - HostPort: 3002
+              Protocol: tcp
+              ContainerPort: 3002
+          Command: []
+          Cpu: 0
+          MountPoints: []
+          WorkingDirectory: /usr/src/busfeed/services/beacon
+          MemoryReservation: 256
+          VolumesFrom: []
+          Image: 212765319754.dkr.ecr.ap-southeast-1.amazonaws.com/beacon-service
+          Essential: true
+          Links: []
+          Name: beacon
+      PlacementConstraints: []
+      Memory: '512'
+      TaskRoleArn: !Ref RoleForECS
+      Family: busfeed-beacon-service
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: '256'
+      Volumes: []
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: f46236d8-788b-4bde-82ef-74689edb183c
+  beaconTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /beacon/healthcheck
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 5
+      Name: beacon-target-grp
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !ImportValue VPC-ID
+      TargetType: ip
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 0fc9b418-bb0a-404c-ad2c-d30f3e2b190a
+    DependsOn:
+      - busfeedLB
+      - LBListener
+  beaconServiceListenerRule:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref beaconTargetGroup
+          Type: forward
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /beacon*
+      ListenerArn: !Ref LBListener
+      Priority: 5
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 46df3036-efd0-47e7-95a2-4b4bdd860f8a
+    DependsOn:
+      - LBListener
+      - beaconTargetGroup
 Outputs:
   LoadBalancerDNS:
     Description: DNS for the busfeed load balancer

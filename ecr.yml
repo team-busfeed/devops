@@ -8,3 +8,7 @@ Resources:
     Type: 'AWS::ECR::Repository'
     Properties:
       RepositoryName: demand-service
+  BEACONSERVICE:
+    Type: 'AWS::ECR::Repository'
+    Properties:
+      RepositoryName: beacon-service
