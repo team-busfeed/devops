@@ -66,6 +66,20 @@ Resources:
       SecurityGroupEgress:
         - CidrIp: "0.0.0.0/0"
           IpProtocol: "-1"
+  PDASecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Security Group for pda-service"
+      GroupName: "pda-services-group"
+      VpcId: !ImportValue "VPC-ID"
+      SecurityGroupIngress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 3005
+          IpProtocol: "tcp"
+          ToPort: 3005
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          IpProtocol: "-1"
   RDSSecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
@@ -85,6 +99,11 @@ Resources:
           ToPort: 3306
         - SourceSecurityGroupId: !Ref BeaconSecurityGroup
           Description: "Beacon Service Fargate Access"
+          FromPort: 3306
+          IpProtocol: "tcp"
+          ToPort: 3306
+        - SourceSecurityGroupId: !Ref PDASecurityGroup
+          Description: "PDA Service Fargate Access"
           FromPort: 3306
           IpProtocol: "tcp"
           ToPort: 3306
@@ -109,6 +128,11 @@ Outputs:
     Value: !Ref BeaconSecurityGroup
     Export:
       Name: BeaconSecurityGroup
+  PDASecurityGroupID:
+    Description: PDASecurityGroup ID
+    Value: !Ref PDASecurityGroup
+    Export:
+      Name: PDASecurityGroup
   RDSSecurityGroupID:
     Description: RDSSecurityGroup ID
     Value: !Ref RDSSecurityGroup

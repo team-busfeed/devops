@@ -12,3 +12,7 @@ Resources:
     Type: 'AWS::ECR::Repository'
     Properties:
       RepositoryName: beacon-service
+  PDASERVICE:
+    Type: 'AWS::ECR::Repository'
+    Properties:
+      RepositoryName: pda-service

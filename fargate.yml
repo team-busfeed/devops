@@ -142,7 +142,7 @@ Metadata:
         width: 140
         height: 140
       position:
-        x: 1140
+        x: 1130
         'y': -130
       z: 0
       embeds: []
@@ -159,6 +159,7 @@ Metadata:
         - ef5f888b-7400-48b4-97e5-3b1af7aed380
         - 69571b83-6c35-4bf9-89d1-67f3bd7009eb
         - 534bda05-1c8e-4293-8c6c-f0aed79024e6
+        - 46df3036-efd0-47e7-95a2-4b4bdd860f8a
     f46236d8-788b-4bde-82ef-74689edb183c:
       size:
         width: 60
@@ -186,9 +187,65 @@ Metadata:
         height: 60
       position:
         x: 1050
-        'y': 420
+        'y': 430
       z: 0
       embeds: []
+    1556a434-0040-4321-b6c7-8837c97da70e:
+      size:
+        width: 140
+        height: 140
+      position:
+        x: 1490
+        'y': -130
+      z: 0
+      embeds: []
+    c48caffd-6206-44bf-8dfe-812c0e76c2dd:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1530
+        'y': 220
+      z: 0
+      embeds: []
+    955ebf7e-5a6b-420d-b24a-f1979ec3eb2f:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1410
+        'y': 220
+      z: 0
+      embeds: []
+      dependson:
+        - ef5f888b-7400-48b4-97e5-3b1af7aed380
+        - 69571b83-6c35-4bf9-89d1-67f3bd7009eb
+        - 534bda05-1c8e-4293-8c6c-f0aed79024e6
+        - 46df3036-efd0-47e7-95a2-4b4bdd860f8a
+        - 88cf67b9-d23e-491b-a8a6-e0c2e9863f6e
+    3d81f53e-b0cb-4a23-8374-a7894883c169:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1410
+        'y': 320
+      z: 0
+      embeds: []
+      dependson:
+        - 50f10f73-69f6-42b6-bc07-d9e74b27571f
+        - ef5f888b-7400-48b4-97e5-3b1af7aed380
+    88cf67b9-d23e-491b-a8a6-e0c2e9863f6e:
+      size:
+        width: 60
+        height: 60
+      position:
+        x: 1410
+        'y': 430
+      z: 0
+      embeds: []
+      dependson:
+        - 0fc9b418-bb0a-404c-ad2c-d30f3e2b190a
 Resources:
   busfeedCluster:
     Type: 'AWS::ECS::Cluster'
@@ -589,6 +646,125 @@ Resources:
     Metadata:
       'AWS::CloudFormation::Designer':
         id: 46df3036-efd0-47e7-95a2-4b4bdd860f8a
+    DependsOn:
+      - LBListener
+      - beaconTargetGroup
+  pdaServiceLogs:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: /ecs/pda-service
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 1556a434-0040-4321-b6c7-8837c97da70e
+  pdaTask:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      ExecutionRoleArn: !Ref RoleForECS
+      ContainerDefinitions:
+        - LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref pdaServiceLogs
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: ecs
+          EntryPoint: []
+          Environment: []
+          PortMappings:
+            - HostPort: 3005
+              Protocol: tcp
+              ContainerPort: 3005
+          Command: []
+          Cpu: 0
+          MountPoints: []
+          WorkingDirectory: /usr/src/busfeed/services/pda
+          MemoryReservation: 256
+          VolumesFrom: []
+          Image: 212765319754.dkr.ecr.ap-southeast-1.amazonaws.com/pda-service
+          Essential: true
+          Links: []
+          Name: pda
+      PlacementConstraints: []
+      Memory: '512'
+      TaskRoleArn: !Ref RoleForECS
+      Family: busfeed-pda-service
+      RequiresCompatibilities:
+        - FARGATE
+      NetworkMode: awsvpc
+      Cpu: '256'
+      Volumes: []
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: c48caffd-6206-44bf-8dfe-812c0e76c2dd
+  pdaService:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      Cluster: !Ref busfeedCluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 30
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: pda
+          ContainerPort: 3005
+          TargetGroupArn: !Ref pdaTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !ImportValue PublicSubnetA
+            - !ImportValue PublicSubnetB
+          SecurityGroups:
+            - !ImportValue PDASecurityGroup
+          AssignPublicIp: ENABLED
+      PlatformVersion: LATEST
+      SchedulingStrategy: REPLICA
+      ServiceName: busfeed_pda_service
+      TaskDefinition: !Ref pdaTask
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 955ebf7e-5a6b-420d-b24a-f1979ec3eb2f
+    DependsOn:
+      - pdaTargetGroup
+      - LBListener
+      - pdaServiceListenerRule
+  pdaTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /pda/healthcheck
+      HealthCheckPort: traffic-port
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 5
+      Name: pda-target-grp
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId: !ImportValue VPC-ID
+      TargetType: ip
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 3d81f53e-b0cb-4a23-8374-a7894883c169
+    DependsOn:
+      - busfeedLB
+      - LBListener
+  pdaServiceListenerRule:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    Properties:
+      Actions:
+        - TargetGroupArn: !Ref pdaTargetGroup
+          Type: forward
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /pda*
+      ListenerArn: !Ref LBListener
+      Priority: 6
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 88cf67b9-d23e-491b-a8a6-e0c2e9863f6e
     DependsOn:
       - LBListener
       - beaconTargetGroup
